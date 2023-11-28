@@ -5,7 +5,7 @@ from config import lipsync_image, stub, volume, mounts
 import config
 import time
 
-@stub.function(image=lipsync_image, mounts=mounts, network_file_systems={config.CACHE_DIR: volume}, gpu="any", concurrency_limit=1)
+@stub.function(image=lipsync_image, mounts=mounts, network_file_systems={config.CACHE_DIR: volume}, gpu="any", cpu=4, memory=4096, concurrency_limit=1, timeout=60*60)
 def perform_lip_sync(video_file: pathlib.Path, audio_file: pathlib.Path, output_file: pathlib.Path):
     """
     Given a video and audio file, performs lip sync using wav2lip and saves to output file.
@@ -36,11 +36,8 @@ def perform_lip_sync(video_file: pathlib.Path, audio_file: pathlib.Path, output_
     
     command = f"cd /root/Wav2Lip && python inference.py --checkpoint_path {str(wave2lip_gan_path)} --face {str(video_file)} --audio {str(audio_file)} --outfile {str(output_file)}"
     process = subprocess.Popen(command, shell=True, text=True, stdout=subprocess.PIPE)
-    counter = 0
     for c in iter(lambda: process.stdout.read(1), b""):
         sys.stdout.write(c)
-        counter += 1
-        if counter % 100 == 0:
-            sys.stdout.flush()
+        sys.stdout.flush()
 
     print(f"Lip-synced in {time.time() - t0:.2f} seconds. Saved to {output_file}.")

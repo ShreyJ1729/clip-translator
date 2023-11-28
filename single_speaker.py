@@ -93,18 +93,22 @@ def download_video_extract_audio(youtube_video_id: str):
     audio_file = config.AUDIO_DIR / f"{youtube_video_id}.mp3"
 
     if not video_file.exists():
-        print(f"Downloading video {youtube_video_id}")
-        subprocess.run(
-            [
-                "yt-dlp",
-                # "--quiet",
-                "--format",
-                "mp4",
-                "--output",
-                str(video_file),
-                f"https://www.youtube.com/watch?v={youtube_video_id}",
-            ]
-        )
+        try:
+            print(f"Downloading video {youtube_video_id}")
+            subprocess.run(
+                [
+                    "yt-dlp",
+                    # "--quiet",
+                    "--format",
+                    "mp4",
+                    "--output",
+                    str(video_file),
+                    f"https://www.youtube.com/watch?v={youtube_video_id}",
+                ]
+            )
+        except Exception as e:
+            print(e)
+            raise Exception("Error downloading video.")
     
     # extract audio from video
     if not audio_file.exists():
