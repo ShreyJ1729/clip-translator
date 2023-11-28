@@ -2,9 +2,8 @@ import config
 from config import stub, app_image, volume, mounts
 import pathlib
 import json
-from typing import *
+from typing import Dict, Any
 
-@stub.function(image=app_image, mounts=mounts, network_file_systems={config.CACHE_DIR: volume}, timeout=900) 
 def translate_text(text: str, target_language: str, source_language: str = "auto") -> Dict[str, Any]:
     """
     Given a text, translates it to target language using gpt4-turbo.
@@ -12,12 +11,13 @@ def translate_text(text: str, target_language: str, source_language: str = "auto
 
     from openai import OpenAI
     import os
-
+    import time
     import dotenv
     dotenv.load_dotenv("/root/.env")
 
     client = OpenAI()
-
+    print("Sending request to OpenAI API for translation...")
+    t0 = time.time()
     chatcompletion = client.chat.completions.create(
         messages=[
             {
@@ -27,7 +27,9 @@ def translate_text(text: str, target_language: str, source_language: str = "auto
         ],
         model="gpt-3.5-turbo",
     )
-
+    
     translated_text = chatcompletion.choices[0].message.content
+
+    print(f"Translated text ({len(text)} characters; {len(text.split())} words) from {source_language} to {target_language} in {time.time() - t0:.2f} seconds.")
 
     return translated_text

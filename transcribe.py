@@ -2,51 +2,57 @@ import config
 from config import stub, app_image, volume, mounts
 import pathlib
 import json
-from typing import *
+from typing import Dict, Iterator, Tuple
 
-@stub.function(image=app_image, network_file_systems={config.CACHE_DIR: volume}, timeout=900) 
 def transcribe_audio(
-    audio_path: pathlib.Path,
-    transcription_path: pathlib.Path,
-    model: config.ModelSpec = config.DEFAULT_MODEL
+    audio_file: pathlib.Path,
+    model: config.ModelSpec = config.DEFAULT_MODEL,
 ):
     import whisper
+    import time
 
     # pre-download whisper model to shared volume for parallelization since _download is not thread-safe
-    print(f"Downloading whisper model {model.name}")
+    print(f"Downloading whisper model '{model.name}' or validating checksum")
     whisper._download(whisper._MODELS[model.name], config.MODEL_DIR, False)
-    
+
     # split audio into segments for parallel processing based on silence
-    segment_gen = split_silences(str(audio_path))
+    segment_gen = split_silences(str(audio_file))
 
     # transcribe each segment in parallel
+    t0 = time.time()
     output_text = ""
     output_segments = []
     for result in transcribe_segment.starmap(
-        segment_gen, kwargs=dict(audio_path=audio_path, model=model)
+        segment_gen, kwargs=dict(audio_file=audio_file, model=model)
     ):
         output_text += result["text"]
         output_segments += result["segments"]
+    
+    print(f"Transcribed segments in {time.time() - t0:.2f} seconds.")
 
     result = {
         "text": output_text,
         "segments": output_segments,
     }
 
-    print(f"Writing openai/whisper transcription to {transcription_path}")
-    with open(transcription_path, "w") as f:
-        json.dump(result, f, indent=4)
+    # save transcript to file
+    transcript_file = config.TRANSCRIPT_DIR / f"{audio_file.stem}.json"
+    with open(transcript_file, "w") as f:
+        json.dump(result, f)
+    
+    return result
+ 
 
 
 @stub.function(
     image=app_image,
     network_file_systems={config.CACHE_DIR: volume},
-    cpu=2,
+    cpu=4,
 )
 def transcribe_segment(
     start: float,
     end: float,
-    audio_path: pathlib.Path,
+    audio_file: pathlib.Path,
     model: config.ModelSpec,
 ):
     import tempfile
@@ -59,7 +65,7 @@ def transcribe_segment(
     t0 = time.time()
     with tempfile.NamedTemporaryFile(suffix=".mp3") as f:
         (
-            ffmpeg.input(str(audio_path))
+            ffmpeg.input(str(audio_file))
             .filter("atrim", start=start, end=end)
             .output(f.name)
             .overwrite_output()
@@ -74,7 +80,7 @@ def transcribe_segment(
         result = model.transcribe(f.name, fp16=use_gpu)
 
     print(
-        f"Transcribed segment {start:.2f} to {end:.2f} ({end - start:.2f}s duration) in {time.time() - t0:.2f} seconds."
+        f"- Transcribed segment {start:.2f} to {end:.2f} ({end - start:.2f}s duration) in {time.time() - t0:.2f} seconds."
     )
 
     # Add back offsets.
@@ -135,4 +141,3 @@ def split_silences(
         yield cur_start, duration
         num_segments += 1
     print(f"Split {path} into {num_segments} segments")
-

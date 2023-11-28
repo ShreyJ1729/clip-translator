@@ -5,13 +5,28 @@ import pathlib
 
 
 stub = modal.Stub("single-speaker-clip-translator")
-mounts = [modal.Mount.from_local_file(".env", remote_path="/root/.env"), modal.Mount.from_local_file("language_mappings.json", remote_path="/root/language_mappings.json")]
+
+mounts = [
+    modal.Mount.from_local_file(".env", remote_path="/root/.env"),
+    modal.Mount.from_local_file("requirements.txt", remote_path="/root/requirements.txt"),
+    modal.Mount.from_local_file("wav2lip_requirements.txt", remote_path="/root/wav2lip_requirements.txt")
+    ]
+
 app_image = (
     modal.Image.debian_slim()
     .apt_install("ffmpeg", "git")
-    .pip_install("openai-whisper", "ffmpeg-python", "yt-dlp", "openai", "python-dotenv")
+    .pip_install_from_requirements("requirements.txt")
 )
-volume = modal.NetworkFileSystem.persisted("dataset-cache-vol")
+
+lipsync_image = (
+    modal.Image.debian_slim()
+    .apt_install("ffmpeg", "git")
+    .run_commands(
+        "git clone https://github.com/Rudrabha/Wav2Lip.git",
+    ).pip_install_from_requirements("wav2lip_requirements.txt")
+)
+
+volume = modal.NetworkFileSystem.persisted("cliptranslator-model-weights-cache")
 
 @dataclasses.dataclass
 class ModelSpec:
@@ -33,17 +48,20 @@ def get_logger(name, level=logging.INFO):
 # root directory for all cached data
 CACHE_DIR = "/cache"
 
-# Location of model checkpoint.
+# model checkpoint.
 MODEL_DIR = pathlib.Path(CACHE_DIR, "model")
 
-# Location of downloaded video files
+# downloaded video files
 VIDEO_DIR = pathlib.Path(CACHE_DIR, "video")
 
-# Location of audio files extracted from video
+# audio files extracted from video
 AUDIO_DIR = pathlib.Path(CACHE_DIR, "audio")
 
-# Location of processed transcripts
+# transcript json files for each audio file
 TRANSCRIPT_DIR = pathlib.Path(CACHE_DIR, "transcript")
+
+# processed (lip-synced) video files
+LIPSYNCED_DIR = pathlib.Path(CACHE_DIR, "lipsynced")
 
 supported_whisper_models = {
     "tiny": ModelSpec(name="tiny", params="39M", relative_speed=32),

@@ -8,51 +8,71 @@ Sequential model pipeline:
 - Send translated text to 11labs TTS to generate new audio
 - Lip-sync person in video to audio using Wav2Lip
 
+
+TODO:
+- add model to clean up audio, removing music/background noise from voices before sendng to elevenlabs
+- add model for accurate voice quality/labels generation to send to elevenlabs
+= benchmark cpu/memory/time for each function to see how to best split containers
+- some way to detect large changes in the video, like a cut, and cut the audio at that point to send to elevenlabs, then stitch the audio back together
+- better logging and error handling
 """
 
 import modal
-import json
-import pathlib
 import config
+import pathlib
 from config import stub, app_image, volume, mounts
-from typing import *
 from transcribe import transcribe_audio
 from translate import translate_text
+import voice_gen
+import lipsync
 
 @stub.function(image=app_image, mounts=mounts, network_file_systems={config.CACHE_DIR: volume}, timeout=900)
 @modal.web_endpoint(method="GET")
-def translate_video(youtube_video_id: str, target_language: str = "french"):
+def translate_video(youtube_video_id: str, target_language: str = "hindi"):
     """
     Given a youtube video id, translates it to target language.
     """
-    download_video_extract_audio.local(youtube_video_id)
+
+    from fastapi import Response
+
+    download_video_extract_audio(youtube_video_id)
+
+    config.MODEL_DIR.mkdir(parents=True, exist_ok=True)
+    config.LIPSYNCED_DIR.mkdir(parents=True, exist_ok=True)
+    config.TRANSCRIPT_DIR.mkdir(parents=True, exist_ok=True)
 
     # identify paths
-    video_path = config.VIDEO_DIR / f"{youtube_video_id}.mp4"
-    audio_path = config.AUDIO_DIR / f"{youtube_video_id}.mp3"
-    transcription_path = config.TRANSCRIPT_DIR / f"{youtube_video_id}.json"
+    video_file = config.VIDEO_DIR / f"{youtube_video_id}.mp4"
+    audio_file = config.AUDIO_DIR / f"{youtube_video_id}.mp3"
 
-    # send audio data to elevenlabs for async voice training while we transcribe/translate
-    # TODO
+    voice_name = "voice 1"
+    voice_description = ""
+    voice_labels = {}
+
+    # # send audio data to elevenlabs for async voice training while we transcribe/translate
+    voice = voice_gen.add_voice(voice_name, audio_file, voice_description, voice_labels)
     
     # transcribe and translate audio to target language
-    original_transcription = transcribe_audio.local(audio_path, transcription_path)
-    translated_transcription = translate_text.local(original_transcription["text"], target_language)
+    original_transcription = transcribe_audio(audio_file)
+    translated_transcription = translate_text(original_transcription["text"], target_language)
+    print(translated_transcription)
 
-    # once elevenlabs voice finished training, send translated text to elevenlabs
-    # TODO
+    # send translated text to elevenlabs and save generated audio
+    generated_audio = voice_gen.generate(translated_transcription, voice, target_language)
+    with open("generated_audio.mp3", "wb") as f:
+        f.write(generated_audio)
 
     # lip-sync video to new audio
-    # TODO
+    output_file = lipsync.perform_lip_sync.remote(video_file, pathlib.Path("generated_audio.mp3"), config.LIPSYNCED_DIR / f"{youtube_video_id}.mp4")
 
-    # save lip-synced video to shared volume and generate download link
-    # TODO
+    # delete cached audio and video files
+    audio_file.unlink()
+    video_file.unlink()
 
-    # return download link
-    # TODO
-    return "download_link"
+    # read output file bytes and return as Fastapu Response
+    with open(output_file, "rb") as f:
+        return Response(content=f.read(), media_type="video/mp4")
 
-@stub.function(image=app_image, mounts=mounts, network_file_systems={config.CACHE_DIR: volume}, timeout=900)
 def download_video_extract_audio(youtube_video_id: str):
     """
     Given a youtube video id, downloads the video and extracts audio.
@@ -63,13 +83,12 @@ def download_video_extract_audio(youtube_video_id: str):
     # create cache directories if they don't exist
     config.VIDEO_DIR.mkdir(parents=True, exist_ok=True)
     config.AUDIO_DIR.mkdir(parents=True, exist_ok=True)
-    config.TRANSCRIPT_DIR.mkdir(parents=True, exist_ok=True)
 
     # download video to shared volume
-    video_path = config.VIDEO_DIR / f"{youtube_video_id}.mp4"
-    audio_path = config.AUDIO_DIR / f"{youtube_video_id}.mp3"
+    video_file = config.VIDEO_DIR / f"{youtube_video_id}.mp4"
+    audio_file = config.AUDIO_DIR / f"{youtube_video_id}.mp3"
 
-    if not video_path.exists():
+    if not video_file.exists():
         print(f"Downloading video {youtube_video_id}")
         subprocess.run(
             [
@@ -78,14 +97,14 @@ def download_video_extract_audio(youtube_video_id: str):
                 "--format",
                 "mp4",
                 "--output",
-                str(video_path),
+                str(video_file),
                 f"https://www.youtube.com/watch?v={youtube_video_id}",
             ]
         )
     
     # extract audio from video
-    if not audio_path.exists():
+    if not audio_file.exists():
         print(f"Extracting audio from video {youtube_video_id}")
-        ffmpeg.input(str(video_path)).output(
-            str(audio_path), ac=1, ar=16000,
+        ffmpeg.input(str(video_file)).output(
+            str(audio_file), ac=1, ar=16000,
         ).run()
