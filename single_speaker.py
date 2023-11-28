@@ -3,6 +3,7 @@ This code translates a video of a single-speaker to another language while maint
 
 Sequential model pipeline:
 
+- Send audio to 11labs to train voice
 - Transcribe input video with Whisper STT
 - Use gpt4-turbo on transcription to translate to target language
 - Send translated text to 11labs TTS to generate new audio
@@ -11,7 +12,7 @@ Sequential model pipeline:
 
 TODO:
 - match up speaking pace of translated audio to original video through cutting at pauses, generating audio for each segment, and speeding up/slowing down audio in each segment to match the cut, then restitching
-
+- Replace 11labs with https://github.com/yl4579/StyleTTS2
 - add model to clean up audio, removing music/background noise from voices before sending to elevenlabs, and re-adds it after receiving generated audio
 - add model for accurate voice quality/labels generation to send to elevenlabs
 - better logging and error handling
