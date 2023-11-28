@@ -9,7 +9,6 @@ stub = modal.Stub("single-speaker-clip-translator")
 mounts = [
     modal.Mount.from_local_file(".env", remote_path="/root/.env"),
     modal.Mount.from_local_file("requirements.txt", remote_path="/root/requirements.txt"),
-    modal.Mount.from_local_file("wav2lip_requirements.txt", remote_path="/root/wav2lip_requirements.txt")
     ]
 
 app_image = (
@@ -22,9 +21,9 @@ lipsync_image = (
     modal.Image.debian_slim()
     .apt_install("ffmpeg", "git")
     .run_commands(
-        "git clone https://github.com/Rudrabha/Wav2Lip.git",
-    ).pip_install_from_requirements("wav2lip_requirements.txt")
-)
+        "git clone https://github.com/ShreyJ1729/Wav2Lip.git /root/Wav2Lip",
+        "pip install -r /root/Wav2Lip/requirements.txt",)
+    )
 
 volume = modal.NetworkFileSystem.persisted("cliptranslator-model-weights-cache")
 

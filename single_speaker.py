@@ -10,11 +10,12 @@ Sequential model pipeline:
 
 
 TODO:
-- add model to clean up audio, removing music/background noise from voices before sendng to elevenlabs
+- add model to clean up audio, removing music/background noise from voices before sending to elevenlabs, and re-adds it after receiving generated audio
 - add model for accurate voice quality/labels generation to send to elevenlabs
 = benchmark cpu/memory/time for each function to see how to best split containers
 - some way to detect large changes in the video, like a cut, and cut the audio at that point to send to elevenlabs, then stitch the audio back together
 - better logging and error handling
+- add upscale for lip-synced video to increase visual quality of lips
 """
 
 import modal
@@ -33,7 +34,7 @@ def translate_video(youtube_video_id: str, target_language: str = "hindi"):
     Given a youtube video id, translates it to target language.
     """
 
-    from fastapi import Response
+    from fastapi.responses import FileResponse
 
     download_video_extract_audio(youtube_video_id)
 
@@ -59,19 +60,22 @@ def translate_video(youtube_video_id: str, target_language: str = "hindi"):
 
     # send translated text to elevenlabs and save generated audio
     generated_audio = voice_gen.generate(translated_transcription, voice, target_language)
-    with open("generated_audio.mp3", "wb") as f:
+    generated_audiofile = pathlib.Path(config.CACHE_DIR, "generated_audio.mp3")
+    with open(generated_audiofile, "wb") as f:
         f.write(generated_audio)
 
     # lip-sync video to new audio
-    output_file = lipsync.perform_lip_sync.remote(video_file, pathlib.Path("generated_audio.mp3"), config.LIPSYNCED_DIR / f"{youtube_video_id}.mp4")
+    lipsynced_file = config.LIPSYNCED_DIR / f"{youtube_video_id}.mp4"
+    lipsync.perform_lip_sync.remote(video_file, generated_audiofile, lipsynced_file)
 
-    # delete cached audio and video files
+    # cleanup, deleting cached audio and video files
     audio_file.unlink()
     video_file.unlink()
+    generated_audiofile.unlink()
+    print("Deleted cached audio and video files.")
 
-    # read output file bytes and return as Fastapu Response
-    with open(output_file, "rb") as f:
-        return Response(content=f.read(), media_type="video/mp4")
+    # return as Fastapi File Response
+    return FileResponse(str(lipsynced_file), media_type="video/mp4", filename=f"{youtube_video_id}-translated.mp4")
 
 def download_video_extract_audio(youtube_video_id: str):
     """

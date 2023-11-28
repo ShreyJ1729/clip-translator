@@ -6,7 +6,7 @@ from typing import Dict, Any
 
 def translate_text(text: str, target_language: str, source_language: str = "auto") -> Dict[str, Any]:
     """
-    Given a text, translates it to target language using gpt4-turbo.
+    Given a text, translates it to target language using gpt=3.5-turbo.
     """
 
     from openai import OpenAI
