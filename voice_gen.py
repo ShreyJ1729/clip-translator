@@ -41,6 +41,6 @@ def generate(translated_text: str, voice: str, target_language: str):
     set_api_key(os.getenv("ELEVENLABS_API_KEY"))
 
     # get raw audio bytes generated from elevenlabs
-    audio = generate(text=translated_text[:100], voice=voice)
+    audio = generate(text=translated_text[:250], voice=voice)
 
     return audio

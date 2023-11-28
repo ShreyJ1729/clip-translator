@@ -11,6 +11,13 @@ def transcribe_audio(
     import whisper
     import time
 
+    # check if transcript file already exists
+    transcript_file = config.TRANSCRIPT_DIR / f"{audio_file.stem}.json"
+    if transcript_file.exists():
+        print(f"Transcript file already exists at {transcript_file}, loading from file...")
+        with open(transcript_file, "r") as f:
+            return json.load(f)
+
     # pre-download whisper model to shared volume for parallelization since _download is not thread-safe
     print(f"Downloading whisper model '{model.name}' or validating checksum")
     whisper._download(whisper._MODELS[model.name], config.MODEL_DIR, False)
@@ -36,7 +43,6 @@ def transcribe_audio(
     }
 
     # save transcript to file
-    transcript_file = config.TRANSCRIPT_DIR / f"{audio_file.stem}.json"
     with open(transcript_file, "w") as f:
         json.dump(result, f)
     

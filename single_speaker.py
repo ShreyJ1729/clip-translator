@@ -10,12 +10,15 @@ Sequential model pipeline:
 
 
 TODO:
+- match up speaking pace of translated audio to original video through cutting at pauses, generating audio for each segment, and speeding up/slowing down audio in each segment to match the cut, then restitching
+
 - add model to clean up audio, removing music/background noise from voices before sending to elevenlabs, and re-adds it after receiving generated audio
 - add model for accurate voice quality/labels generation to send to elevenlabs
-= benchmark cpu/memory/time for each function to see how to best split containers
-- some way to detect large changes in the video, like a cut, and cut the audio at that point to send to elevenlabs, then stitch the audio back together
 - better logging and error handling
 - add upscale for lip-synced video to increase visual quality of lips
+- try using stable diffusion model for lip-syncing since wav2lip doesn't work well (https://github.com/OpenTalker/video-retalking)
+- create feature to email one-time use download link for processed videos with post-download cleanup (delete)
+= benchmark cpu/memory/time for each function to see how to best split containers
 """
 
 import modal
@@ -27,9 +30,9 @@ from translate import translate_text
 import voice_gen
 import lipsync
 
-@stub.function(image=app_image, mounts=mounts, network_file_systems={config.CACHE_DIR: volume}, timeout=900)
+@stub.function(image=app_image, mounts=mounts, network_file_systems={config.CACHE_DIR: volume}, timeout=600)
 @modal.web_endpoint(method="GET")
-def translate_video(youtube_video_id: str, target_language: str = "hindi"):
+def translate_video(youtube_video_id: str, target_language: str):
     """
     Given a youtube video id, translates it to target language.
     """
@@ -56,7 +59,6 @@ def translate_video(youtube_video_id: str, target_language: str = "hindi"):
     # transcribe and translate audio to target language
     original_transcription = transcribe_audio(audio_file)
     translated_transcription = translate_text(original_transcription["text"], target_language)
-    print(translated_transcription)
 
     # send translated text to elevenlabs and save generated audio
     generated_audio = voice_gen.generate(translated_transcription, voice, target_language)

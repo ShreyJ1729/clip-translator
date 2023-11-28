@@ -22,7 +22,8 @@ lipsync_image = (
     .apt_install("ffmpeg", "git")
     .run_commands(
         "git clone https://github.com/ShreyJ1729/Wav2Lip.git /root/Wav2Lip",
-        "cd /root/Wav2Lip && pip install -r requirements.txt")
+        "cd /root/Wav2Lip && pip install -r requirements.txt",
+        "echo")
     )
 
 volume = modal.NetworkFileSystem.persisted("cliptranslator-model-weights-cache")
