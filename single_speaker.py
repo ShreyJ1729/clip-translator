@@ -33,52 +33,33 @@ import lipsync
 
 @stub.function(image=app_image, mounts=mounts, network_file_systems={config.CACHE_DIR: volume}, timeout=600)
 @modal.web_endpoint(method="GET")
-def translate_video(youtube_video_id: str, target_language: str):
+def translate_video():
     """
     Given a youtube video id, translates it to target language.
     """
 
     from fastapi.responses import FileResponse
 
-    download_video_extract_audio(youtube_video_id)
 
     config.MODEL_DIR.mkdir(parents=True, exist_ok=True)
     config.LIPSYNCED_DIR.mkdir(parents=True, exist_ok=True)
     config.TRANSCRIPT_DIR.mkdir(parents=True, exist_ok=True)
 
-    # identify paths
-    video_file = config.VIDEO_DIR / f"{youtube_video_id}.mp4"
-    audio_file = config.AUDIO_DIR / f"{youtube_video_id}.mp3"
 
     voice_name = "voice 1"
     voice_description = ""
     voice_labels = {}
 
-    # # send audio data to elevenlabs for async voice training while we transcribe/translate
-    voice = voice_gen.add_voice(voice_name, audio_file, voice_description, voice_labels)
-    
-    # transcribe and translate audio to target language
-    original_transcription = transcribe_audio(audio_file)
-    translated_transcription = translate_text(original_transcription["text"], target_language)
+    video_file = config.VIDEO_DIR / f"betterhelpgirl.mp4"
+    audio_file = config.AUDIO_DIR / f"betterhelpgirl.wav"
 
-    # send translated text to elevenlabs and save generated audio
-    generated_audio = voice_gen.generate(translated_transcription, voice, target_language)
-    generated_audiofile = pathlib.Path(config.CACHE_DIR, "generated_audio.mp3")
-    with open(generated_audiofile, "wb") as f:
-        f.write(generated_audio)
 
     # lip-sync video to new audio
-    lipsynced_file = config.LIPSYNCED_DIR / f"{youtube_video_id}.mp4"
-    lipsync.perform_lip_sync.remote(video_file, generated_audiofile, lipsynced_file)
+    lipsynced_file = config.LIPSYNCED_DIR / f"betterhelpgirl.mp4"
+    lipsync.perform_lip_sync.remote(video_file, audio_file, lipsynced_file)
 
-    # cleanup, deleting cached audio and video files
-    audio_file.unlink()
-    video_file.unlink()
-    generated_audiofile.unlink()
-    print("Deleted cached audio and video files.")
+    return FileResponse(lipsynced_file, media_type="video/mp4")
 
-    # return as Fastapi File Response
-    return FileResponse(str(lipsynced_file), media_type="video/mp4", filename=f"{youtube_video_id}-translated.mp4")
 
 def download_video_extract_audio(youtube_video_id: str):
     """
