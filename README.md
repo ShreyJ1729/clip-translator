@@ -1,5 +1,3 @@
-
-https://github.com/ShreyJ1729/cliptranslator/assets/23284483/d660aa1b-7485-434b-9ced-2480b9700e40
 ## ClipTranslator
 
 Translates video clips of human speech from source language to target language, and adds lip-syncing using Wav2Lip for a realistic video-audio match
