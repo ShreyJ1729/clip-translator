@@ -1,4 +1,4 @@
-## ClipTranslator
+## DubbSync
 
 Translates video clips of human speech from source language to target language, and adds lip-syncingfor a realistic video-audio match
 
