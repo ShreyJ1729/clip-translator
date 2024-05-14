@@ -1,10 +1,10 @@
 ## DubbSync
 
-Translates video clips of human speech from source language to target language, and adds lip-syncingfor a realistic video-audio match
+Adds lip-syncing to dubbed videos.
 
-Uses 11labs for voice dubbing, video-retalking for lipsyncing and modal labs for deployment.
+Uses video-retalking for lipsyncing and modal labs for deployment.
 
-The demos below use Wav2Lip. This project was retired soon after porting lipsyncing to the updated video-retalking model, which is why Wav2Lip has been removed from the source code.
+The demos below use 11Labs and Wav2Lip. This project was retired soon after porting lipsyncing to the updated video-retalking model, which is why Wav2Lip has been removed from the source code.
 
 #### Demo
 
