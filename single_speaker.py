@@ -1,23 +1,12 @@
 """
-This code translates a video of a single-speaker to another language while maintaining the original speaker\'s vocal identity and lip-syncing to the new audio.
+Given a dubbed video of a speaker (in frame) whose lips are not in sync with the audio, this code uses Video-Retalking to realistically lip-sync.
 
 Sequential model pipeline:
+- Just apply Video-Retalking
 
-- Send audio to 11labs to train voice
-- Transcribe input video with Whisper STT
-- Use gpt4-turbo on transcription to translate to target language
-- Send translated text to 11labs TTS to generate new audio
-- Lip-sync person in video to audio using Wav2Lip
-
-
-TODO:
-- match up speaking pace of translated audio to original video through cutting at pauses, generating audio for each segment, and speeding up/slowing down audio in each segment to match the cut, then restitching
-- Replace 11labs with https://github.com/yl4579/StyleTTS2
-- add model to clean up audio, removing music/background noise from voices before sending to elevenlabs, and re-adds it after receiving generated audio
-- add model for accurate voice quality/labels generation to send to elevenlabs
+Notes to remember:
 - better logging and error handling
 - add upscale for lip-synced video to increase visual quality of lips
-- try using stable diffusion model for lip-syncing since wav2lip doesn't work well (https://github.com/OpenTalker/video-retalking)
 - create feature to email one-time use download link for processed videos with post-download cleanup (delete)
 = benchmark cpu/memory/time for each function to see how to best split containers
 """
@@ -26,16 +15,13 @@ import modal
 import config
 import pathlib
 from config import stub, app_image, volume, mounts
-from transcribe import transcribe_audio
-from translate import translate_text
-import voice_gen
 import lipsync
 
 @stub.function(image=app_image, mounts=mounts, network_file_systems={config.CACHE_DIR: volume}, timeout=600)
 @modal.web_endpoint(method="GET")
-def translate_video(youtube_video_id: str, target_language: str):
+def translate_video(youtube_video_id: str):
     """
-    Given a youtube video id, translates it to target language.
+    Given a youtube video id of a dubbed video, lip-syncs and returns it.
     """
 
     from fastapi.responses import FileResponse
@@ -44,45 +30,26 @@ def translate_video(youtube_video_id: str, target_language: str):
 
     config.MODEL_DIR.mkdir(parents=True, exist_ok=True)
     config.LIPSYNCED_DIR.mkdir(parents=True, exist_ok=True)
-    config.TRANSCRIPT_DIR.mkdir(parents=True, exist_ok=True)
 
     # identify paths
     video_file = config.VIDEO_DIR / f"{youtube_video_id}.mp4"
     audio_file = config.AUDIO_DIR / f"{youtube_video_id}.mp3"
 
-    voice_name = "voice 1"
-    voice_description = ""
-    voice_labels = {}
-
-    # # send audio data to elevenlabs for async voice training while we transcribe/translate
-    voice = voice_gen.add_voice(voice_name, audio_file, voice_description, voice_labels)
-    
-    # transcribe and translate audio to target language
-    original_transcription = transcribe_audio(audio_file)
-    translated_transcription = translate_text(original_transcription["text"], target_language)
-
-    # send translated text to elevenlabs and save generated audio
-    generated_audio = voice_gen.generate(translated_transcription, voice, target_language)
-    generated_audiofile = pathlib.Path(config.CACHE_DIR, "generated_audio.mp3")
-    with open(generated_audiofile, "wb") as f:
-        f.write(generated_audio)
-
     # lip-sync video to new audio
     lipsynced_file = config.LIPSYNCED_DIR / f"{youtube_video_id}.mp4"
-    lipsync.perform_lip_sync.remote(video_file, generated_audiofile, lipsynced_file)
+    lipsync.perform_lip_sync.remote(video_file, audio_file, lipsynced_file)
 
     # cleanup, deleting cached audio and video files
     audio_file.unlink()
     video_file.unlink()
-    generated_audiofile.unlink()
     print("Deleted cached audio and video files.")
 
     # return as Fastapi File Response
-    return FileResponse(str(lipsynced_file), media_type="video/mp4", filename=f"{youtube_video_id}-translated.mp4")
+    return FileResponse(str(lipsynced_file), media_type="video/mp4", filename=f"{youtube_video_id}-dubbsynced.mp4")
 
 def download_video_extract_audio(youtube_video_id: str):
     """
-    Given a youtube video id, downloads the video and extracts audio.
+    Given a youtube video id, downloads the video and extracts audio to cache.
     """
     import ffmpeg
     import subprocess

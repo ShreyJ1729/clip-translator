@@ -5,42 +5,99 @@ from config import lipsync_image, stub, volume, mounts
 import config
 import time
 
-@stub.function(image=lipsync_image, mounts=mounts, network_file_systems={config.CACHE_DIR: volume}, gpu="any", cpu=2, memory=8192, concurrency_limit=1, timeout=600)
-def perform_lip_sync(video_file: pathlib.Path, audio_file: pathlib.Path, output_file: pathlib.Path):
+import subprocess
+import os
+
+
+def check_cuda_installation():
+    # List of common CUDA installation paths
+    cuda_paths = [
+        "/usr/local/cuda",
+        "/usr/local/cuda-11.1",
+        "/usr/local/cuda-11",
+        "/opt/cuda",
+        "/opt/cuda-11.1",
+        "/opt/cuda-11",
+    ]
+
+    print("Searching for CUDA Toolkit installation...")
+
+    # Check each path for nvcc
+    for path in cuda_paths:
+        nvcc_path = os.path.join(path, "bin", "nvcc")
+        if os.path.exists(nvcc_path):
+            print(f"CUDA Toolkit found at: {path}")
+            return
+
+    # Check if nvcc is in the system PATH
+    try:
+        nvcc_location = subprocess.check_output(["which", "nvcc"], text=True).strip()
+        if nvcc_location:
+            cuda_path = os.path.dirname(os.path.dirname(nvcc_location))
+            print(f"CUDA Toolkit found at: {cuda_path}")
+            return
+    except subprocess.CalledProcessError:
+        pass
+
+    # Final message if CUDA Toolkit is not found
+    print("CUDA Toolkit not found in common locations. Please check your installation.")
+
+
+@stub.function(
+    image=lipsync_image,
+    mounts=mounts,
+    network_file_systems={config.CACHE_DIR: volume},
+    gpu="any",
+    cpu=2,
+    memory=8192,
+    concurrency_limit=1,
+    timeout=600,
+)
+def perform_lip_sync(
+    video_file: pathlib.Path, audio_file: pathlib.Path, output_file: pathlib.Path
+):
     """
-    Given a video and audio file, performs lip sync using wav2lip and saves to output file.
+    Given a video and audio file, performs lip sync using video-retalking and saves to output file.
     """
     import subprocess
 
-    # download model weights to corresponding directories if not already present
-    # wave2lip gan model weights
-    wave2lip_gan_path = config.MODEL_DIR / "wav2lip_gan.pth"
-    if not wave2lip_gan_path.exists():
-        raise Exception("wav2lip_gan.pth not found in model directory.")
-    
-    # s3fd face detection model weights
-    s3fd_path = config.MODEL_DIR / "s3fd.pth"
-    if not s3fd_path.exists():
-        raise Exception("s3fd.pth not found in model directory.")
+    # copy model files from cache to container
+    print(
+        subprocess.check_output("locate cuda | grep /cuda$", shell=True).decode("utf-8")
+    )
 
-    # copy s3fd model weights to wav2lip directory
-    subprocess.run(f"cp {s3fd_path} Wav2Lip/face_detection/detection/sfd/s3fd.pth", shell=True)
+    local_destination = pathlib.Path("/root/video-retalking/")
+    if not (local_destination / "checkpoints").exists():
+        print(f"Copying model files from {config.MODEL_DIR} to {local_destination}...")
+        subprocess.run(
+            f"cp -r {config.MODEL_DIR} {local_destination}", shell=True, check=True
+        )
 
     # print the gpu in use
-    gpu_in_use = subprocess.run("nvidia-smi", shell=True, capture_output=True).stdout.decode("utf-8")
-    print(f"GPU in use: {gpu_in_use}")
+    gpu_in_use = subprocess.run(
+        "nvidia-smi", shell=True, capture_output=True
+    ).stdout.decode("utf-8")
+    print(gpu_in_use)
 
     # perform lip sync
-    print(f"Performing lip sync combining {str(video_file)} and {str(audio_file)}, saving to {str(output_file)}...")
+    print(
+        f"Performing lip sync combining {str(video_file)} and {str(audio_file)}, saving to {str(output_file)}..."
+    )
     t0 = time.time()
-    
-    command = f"cd /root/Wav2Lip && python inference.py --checkpoint_path {str(wave2lip_gan_path)} --face {str(video_file)} --audio {str(audio_file)} --outfile {str(output_file)}"
+
+    command = f"""
+                    export CUDA_HOME=/usr/bin/ && 
+                    export PATH=$PATH:$CUDA_HOME/bin &&
+                    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CUDA_HOME/lib64 &&
+                    cd /root/video-retalking &&
+                    python inference.py --checkpoint_path --face {str(video_file)} --audio {str(audio_file)} --outfile {str(output_file)}"""
+
     process = subprocess.Popen(command, shell=True, text=True, stdout=subprocess.PIPE)
 
     # stream output line by line to stdout
     for line in iter(process.stdout.readline, ""):
         sys.stdout.write(line)
-    
+
     # wait for process to finish and check for errors
     return_code = process.wait()
     if return_code:

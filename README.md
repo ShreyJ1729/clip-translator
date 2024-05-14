@@ -1,26 +1,14 @@
 ## ClipTranslator
 
-Single-speaker model pipeline:
+Translates video clips of human speech from source language to target language, and adds lip-syncing using Wav2Lip for a realistic video-audio match
 
-- Send audio to 11labs for voice training
-- Whisper STT
-- gpt3.5-turbo for translation
-- 11labs TTS
-- Wav2Lip
+#### Demo
 
-Multi-speaker Model pipeline:
+Original English:
+![](media/betterhelpgirl-english.mp4)
 
-- Speaker Diarization (huggingface pyannote/speaker-diarization-3.0)
-- Whisper STT
-- gpt3.5-turbo for translation
-- 11labs TTS
-- Active speaker detection (https://github.com/sra2/spell)
-- Wav2Lip on active speaker
+French dubbed using 11labs (no lipsync)
+![](media/betterhelpgirl-french.mp4)
 
-- Identify speakers in video and annotate segments based on who's talking
-- Extract audio from video segments
-- - Train 11labs voice model for each speaker
-- - Convert audio to text using Whisper STT + translate to given language
-- Convert text to audio using 11labs TTS
-- Use Wav2Lip to generate lip-synced video for each speaker
-- Stitch together all video/audio segments into final video
+French dubbed + lipsync
+![](media/betterhelpgirl-lipped.mp4)
