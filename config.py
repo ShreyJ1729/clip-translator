@@ -1,10 +1,8 @@
 import modal
-import dataclasses
 import logging
 import pathlib
 
-
-stub = modal.Stub("single-speaker-clip-translator")
+stub = modal.Stub("orpheus")
 
 mounts = [
     modal.Mount.from_local_file(".env", remote_path="/root/.env"),
@@ -17,23 +15,19 @@ app_image = (
     .pip_install_from_requirements("requirements.txt")
 )
 
+
+
 lipsync_image = (
-    modal.Image.debian_slim()
-    .apt_install("ffmpeg", "git")
+    modal.Image.micromamba(python_version="3.9")
+    .apt_install("ffmpeg", "git", "cmake", "build-essential")
+    .run_commands("export PATH=~/usr/bin/cmake:$PATH")
+    .micromamba_install( ["cudatoolkit=11.1", "cudnn", "cuda-nvcc", ], channels=["conda-forge", "nvidia"], gpu="any")
     .run_commands(
-        "git clone https://github.com/ShreyJ1729/Wav2Lip.git /root/Wav2Lip",
-        "cd /root/Wav2Lip && pip install -r requirements.txt",
-        "echo")
-    )
+        "pip install torch==1.9.0+cu111 torchvision==0.10.0+cu111 -f https://download.pytorch.org/whl/torch_stable.html",
+        "pip install basicsr==1.4.2 kornia==0.5.1 face-alignment==1.3.4 ninja==1.10.2.3 einops==0.4.1 facexlib==0.2.5 librosa==0.9.2 dlib==19.24.0 numpy==1.20.0")
+    .run_commands("git clone https://github.com/OpenTalker/video-retalking.git /root/video-retalking"))
 
-volume = modal.NetworkFileSystem.persisted("cliptranslator-model-weights-cache")
-
-@dataclasses.dataclass
-class ModelSpec:
-    name: str
-    params: str
-    relative_speed: int  # Higher is faster
-
+volume = modal.NetworkFileSystem.persisted("orpheus-cache")
 
 def get_logger(name, level=logging.INFO):
     logger = logging.getLogger(name)
@@ -57,21 +51,5 @@ VIDEO_DIR = pathlib.Path(CACHE_DIR, "video")
 # audio files extracted from video
 AUDIO_DIR = pathlib.Path(CACHE_DIR, "audio")
 
-# transcript json files for each audio file
-TRANSCRIPT_DIR = pathlib.Path(CACHE_DIR, "transcript")
-
 # processed (lip-synced) video files
 LIPSYNCED_DIR = pathlib.Path(CACHE_DIR, "lipsynced")
-
-supported_whisper_models = {
-    "tiny": ModelSpec(name="tiny", params="39M", relative_speed=32),
-    # Takes around 3-10 minutes to transcribe a podcast, depending on length.
-    "base": ModelSpec(name="base", params="74M", relative_speed=16),
-    "small": ModelSpec(name="small", params="244M", relative_speed=6),
-    "medium": ModelSpec(name="medium", params="769M", relative_speed=2),
-    # Very slow. Will take around 45 mins to 1.5 hours to transcribe.
-    "large": ModelSpec(name="large", params="1550M", relative_speed=1),
-}
-
-
-DEFAULT_MODEL = supported_whisper_models["base"]
