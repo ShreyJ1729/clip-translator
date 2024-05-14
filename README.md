@@ -7,7 +7,7 @@ Uses 11labs for voice dubbing, Wav2Lip for lipsyncing and modal labs for deploym
 #### Demo
 
 Original English:
-![](media/betterhelpgirl-english.mp4)
+![Original English](media/betterhelpgirl-english.mp4)
 
 French dubbed using 11labs (no lipsync)
 ![](media/betterhelpgirl-french.mp4)
