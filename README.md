@@ -1,8 +1,10 @@
 ## ClipTranslator
 
-Translates video clips of human speech from source language to target language, and adds lip-syncing using Wav2Lip for a realistic video-audio match
+Translates video clips of human speech from source language to target language, and adds lip-syncingfor a realistic video-audio match
 
-Uses 11labs for voice dubbing, Wav2Lip for lipsyncing and modal labs for deployment.
+Uses 11labs for voice dubbing, video-retalking for lipsyncing and modal labs for deployment.
+
+The demos below use Wav2Lip. This project was retired soon after porting lipsyncing to the updated video-retalking model, which is why Wav2Lip has been removed from the source code.
 
 #### Demo
 
