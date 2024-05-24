@@ -1,7 +1,6 @@
 import sys
-import modal
 import pathlib
-from config import lipsync_image, stub, volume, mounts
+from config import lipsync_image, app, volume, mounts
 import config
 import time
 
@@ -43,7 +42,7 @@ def check_cuda_installation():
     print("CUDA Toolkit not found in common locations. Please check your installation.")
 
 
-@stub.function(
+@app.function(
     image=lipsync_image,
     mounts=mounts,
     network_file_systems={config.CACHE_DIR: volume},
@@ -61,11 +60,17 @@ def perform_lip_sync(
     """
     import subprocess
 
-    # copy model files from cache to container
-    print(
-        subprocess.check_output("locate cuda | grep /cuda$", shell=True).decode("utf-8")
-    )
+    check_cuda_installation()
+    try:
+        print(
+            subprocess.check_output(
+                "find /usr/local/ -name cublas_v2.h", shell=True
+            ).decode("utf-8")
+        )
+    except subprocess.CalledProcessError:
+        pass
 
+    # copy model files from cache to container
     local_destination = pathlib.Path("/root/video-retalking/")
     if not (local_destination / "checkpoints").exists():
         print(f"Copying model files from {config.MODEL_DIR} to {local_destination}...")
@@ -86,9 +91,13 @@ def perform_lip_sync(
     t0 = time.time()
 
     command = f"""
-                    export CUDA_HOME=/usr/bin/ && 
+                    export CUDA_HOME=/opt/conda && 
                     export PATH=$PATH:$CUDA_HOME/bin &&
                     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CUDA_HOME/lib64 &&
+                    export CPATH=$CUDA_HOME/include:$CPATH &&
+                    export CUDNN_INCLUDE_DIR=$CUDA_HOME/include &&
+                    export CUDNN_LIB_DIR=$CUDA_HOME/lib64 &&
+
                     cd /root/video-retalking &&
                     python inference.py --checkpoint_path --face {str(video_file)} --audio {str(audio_file)} --outfile {str(output_file)}"""
 

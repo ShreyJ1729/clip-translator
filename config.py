@@ -2,12 +2,14 @@ import modal
 import logging
 import pathlib
 
-stub = modal.Stub("orpheus")
+app = modal.App("dubbsync")
 
 mounts = [
-    modal.Mount.from_local_file(".env", remote_path="/root/.env"),
-    modal.Mount.from_local_file("requirements.txt", remote_path="/root/requirements.txt"),
-    ]
+    # modal.Mount.from_local_file(".env", remote_path="/root/.env"),
+    modal.Mount.from_local_file(
+        "requirements.txt", remote_path="/root/requirements.txt"
+    ),
+]
 
 app_image = (
     modal.Image.debian_slim()
@@ -16,18 +18,51 @@ app_image = (
 )
 
 
-
 lipsync_image = (
     modal.Image.micromamba(python_version="3.9")
-    .apt_install("ffmpeg", "git", "cmake", "build-essential")
-    .run_commands("export PATH=~/usr/bin/cmake:$PATH")
-    .micromamba_install( ["cudatoolkit=11.1", "cudnn", "cuda-nvcc", ], channels=["conda-forge", "nvidia"], gpu="any")
     .run_commands(
-        "pip install torch==1.9.0+cu111 torchvision==0.10.0+cu111 -f https://download.pytorch.org/whl/torch_stable.html",
-        "pip install basicsr==1.4.2 kornia==0.5.1 face-alignment==1.3.4 ninja==1.10.2.3 einops==0.4.1 facexlib==0.2.5 librosa==0.9.2 dlib==19.24.0 numpy==1.20.0")
-    .run_commands("git clone https://github.com/OpenTalker/video-retalking.git /root/video-retalking"))
+        "wget https://developer.download.nvidia.com/compute/cuda/12.2.0/local_installers/cuda_12.2.0_535.54.03_linux.run",
+        "sudo sh cuda_12.2.0_535.54.03_linux.run",
+    )
+    .apt_install(
+        "ffmpeg",
+        "git",
+        "cmake",
+        "build-essential",
+        "libopenblas-dev",
+        "liblapack-dev",
+        "pkg-config",
+    )
+    .micromamba_install(
+        [
+            "cudatoolkit=12.2",
+            "cudnn",
+            "cuda-nvcc",
+            "cuda-cudart-dev",
+            "libcublas-dev",
+            "libcusolver-dev",
+            "libcurand-dev",
+            "libcufft-dev",
+        ],
+        channels=["conda-forge", "nvidia"],
+        gpu="any",
+    )
+    .run_commands(
+        "export PATH=~/usr/bin/cmake:$PATH && export CUDA_HOME=/opt/conda && export PATH=$PATH:$CUDA_HOME/bin && export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CUDA_HOME/lib64 && export CPATH=$CUDA_HOME/include:$CPATH && export CUDNN_INCLUDE_DIR=$CUDA_HOME/include && export CUDNN_LIB_DIR=$CUDA_HOME/lib64",
+        "pip install --upgrade setuptools pip",
+        "conda install pytorch torchvision torchaudio pytorch-cuda=12.2 -c pytorch -c nvidia",
+        # build dlib with cuda support
+        "git clone https://github.com/davisking/dlib.git && cd dlib && mkdir build && cd build && cmake .. -DDLIB_USE_CUDA=1 -DUSE_AVX_INSTRUCTIONS=1 -DCUDA_TOOLKIT_ROOT_DIR=/opt/conda && cmake --build . && cd .. && python setup.py install --set DLIB_USE_CUDA=1",
+        "pip install git+https://github.com/XPixelGroup/BasicSR kornia==0.5.1 face-alignment==1.3.4 ninja==1.10.2.3 einops==0.4.1 facexlib==0.2.5 librosa==0.9.2 numpy==1.20.0",
+        "python -c 'import dlib; print(dlib.__version__); print(dlib.DLIB_USE_CUDA); print(dlib.cuda.get_num_devices())'",
+    )
+    .run_commands(
+        "git clone https://github.com/OpenTalker/video-retalking.git /root/video-retalking"
+    )
+)
 
-volume = modal.NetworkFileSystem.persisted("orpheus-cache")
+volume = modal.NetworkFileSystem.from_name("dubbsync-cache", create_if_missing=True)
+
 
 def get_logger(name, level=logging.INFO):
     logger = logging.getLogger(name)
@@ -39,7 +74,8 @@ def get_logger(name, level=logging.INFO):
     logger.setLevel(level)
     return logger
 
-# root directory for all cached data
+
+# root directory for all cached data (mount point for nfs)
 CACHE_DIR = "/cache"
 
 # model checkpoint.

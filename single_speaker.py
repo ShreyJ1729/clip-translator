@@ -14,10 +14,16 @@ Notes to remember:
 import modal
 import config
 import pathlib
-from config import stub, app_image, volume, mounts
+from config import app, app_image, volume, mounts
 import lipsync
 
-@stub.function(image=app_image, mounts=mounts, network_file_systems={config.CACHE_DIR: volume}, timeout=600)
+
+@app.function(
+    image=app_image,
+    mounts=mounts,
+    network_file_systems={config.CACHE_DIR: volume},
+    timeout=600,
+)
 @modal.web_endpoint(method="GET")
 def translate_video(youtube_video_id: str):
     """
@@ -45,7 +51,12 @@ def translate_video(youtube_video_id: str):
     print("Deleted cached audio and video files.")
 
     # return as Fastapi File Response
-    return FileResponse(str(lipsynced_file), media_type="video/mp4", filename=f"{youtube_video_id}-dubbsynced.mp4")
+    return FileResponse(
+        str(lipsynced_file),
+        media_type="video/mp4",
+        filename=f"{youtube_video_id}-dubbsynced.mp4",
+    )
+
 
 def download_video_extract_audio(youtube_video_id: str):
     """
@@ -79,10 +90,12 @@ def download_video_extract_audio(youtube_video_id: str):
         except Exception as e:
             print(e)
             raise Exception("Error downloading video.")
-    
+
     # extract audio from video
     if not audio_file.exists():
         print(f"Extracting audio from video {youtube_video_id}")
         ffmpeg.input(str(video_file)).output(
-            str(audio_file), ac=1, ar=16000,
+            str(audio_file),
+            ac=1,
+            ar=16000,
         ).run()
