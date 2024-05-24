@@ -4,43 +4,6 @@ from config import lipsync_image, app, volume, mounts
 import config
 import time
 
-import subprocess
-import os
-
-
-def check_cuda_installation():
-    # List of common CUDA installation paths
-    cuda_paths = [
-        "/usr/local/cuda",
-        "/usr/local/cuda-11.1",
-        "/usr/local/cuda-11",
-        "/opt/cuda",
-        "/opt/cuda-11.1",
-        "/opt/cuda-11",
-    ]
-
-    print("Searching for CUDA Toolkit installation...")
-
-    # Check each path for nvcc
-    for path in cuda_paths:
-        nvcc_path = os.path.join(path, "bin", "nvcc")
-        if os.path.exists(nvcc_path):
-            print(f"CUDA Toolkit found at: {path}")
-            return
-
-    # Check if nvcc is in the system PATH
-    try:
-        nvcc_location = subprocess.check_output(["which", "nvcc"], text=True).strip()
-        if nvcc_location:
-            cuda_path = os.path.dirname(os.path.dirname(nvcc_location))
-            print(f"CUDA Toolkit found at: {cuda_path}")
-            return
-    except subprocess.CalledProcessError:
-        pass
-
-    # Final message if CUDA Toolkit is not found
-    print("CUDA Toolkit not found in common locations. Please check your installation.")
-
 
 @app.function(
     image=lipsync_image,
@@ -59,16 +22,6 @@ def perform_lip_sync(
     Given a video and audio file, performs lip sync using video-retalking and saves to output file.
     """
     import subprocess
-
-    check_cuda_installation()
-    try:
-        print(
-            subprocess.check_output(
-                "find /usr/local/ -name cublas_v2.h", shell=True
-            ).decode("utf-8")
-        )
-    except subprocess.CalledProcessError:
-        pass
 
     # copy model files from cache to container
     local_destination = pathlib.Path("/root/video-retalking/")
