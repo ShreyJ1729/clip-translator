@@ -66,7 +66,7 @@ lipsync_image = (
     # verify that dlib is installed with cuda support
     .run_commands(
         "which nvcc",
-        "python -c 'import dlib; print('dlib using CUDA: ' + str(dlib.DLIB_USE_CUDA)); print('GPUs: ' + str(dlib.cuda.get_num_devices()))'",
+        'python -c \'import dlib; print("dlib using CUDA: " + str(dlib.DLIB_USE_CUDA)); print("GPUs: " + str(dlib.cuda.get_num_devices()))\'',
         gpu=modal.gpu.T4(),
     )
     # clone video-retalking repo and install dependencies
