@@ -1,4 +1,5 @@
 import sys
+import modal
 import pathlib
 from config import lipsync_image, app, volume
 import config
@@ -8,10 +9,9 @@ import time
 @app.function(
     image=lipsync_image,
     network_file_systems={config.CACHE_DIR: volume},
-    gpu="any",
-    cpu=4,
-    memory=8192,
-    concurrency_limit=1,
+    gpu=modal.gpu.T4(),
+    cpu=2,
+    memory=2048,
     timeout=600,
 )
 def perform_lip_sync(
@@ -23,21 +23,20 @@ def perform_lip_sync(
     import subprocess
 
     # copy model files from cache to container
-    local_destination = pathlib.Path("/root/video-retalking/")
-    if not (local_destination / "checkpoints").exists():
-        print(f"Copying model files from {config.MODEL_DIR} to {local_destination}...")
-        subprocess.run(
-            f"cp -r {config.MODEL_DIR} {local_destination}", shell=True, check=True
-        )
+    # local_destination = pathlib.Path("/root/video-retalking/")
+    # if not (local_destination / "checkpoints").exists():
+    #     print(f"Copying model files from {config.MODEL_DIR} to {local_destination}...")
+    #     subprocess.run(
+    #         f"cp -r {config.MODEL_DIR} {local_destination}", shell=True, check=True
+    #     )
 
-    # perform lip sync
     print(
         f"Performing lip sync combining {str(video_file)} and {str(audio_file)}, saving to {str(output_file)}..."
     )
     t0 = time.time()
 
     command = f"""
-                    export CUDA_HOME=/opt/conda && 
+                    export CUDA_HOME=/usr/local/cuda && 
                     export PATH=$PATH:$CUDA_HOME/bin &&
                     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CUDA_HOME/lib64 &&
                     export CPATH=$CUDA_HOME/include:$CPATH &&
@@ -45,7 +44,7 @@ def perform_lip_sync(
                     export CUDNN_LIB_DIR=$CUDA_HOME/lib64 &&
 
                     cd /root/video-retalking &&
-                    python inference.py --checkpoint_path --face {str(video_file)} --audio {str(audio_file)} --outfile {str(output_file)}"""
+                    python inference.py --checkpoints {config.MODEL_DIR} --face {str(video_file)} --audio {str(audio_file)} --outfile {str(output_file)}"""
 
     process = subprocess.Popen(command, shell=True, text=True, stdout=subprocess.PIPE)
 

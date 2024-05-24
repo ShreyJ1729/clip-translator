@@ -45,20 +45,34 @@ lipsync_image = (
         "apt-get -y install cuda-toolkit-12-5",
     )
     .run_commands("apt-get -y install cudnn9-cuda-12")
-    # install dlib from source with cuda support along with other deps for video-retalking
+    # install dlib from source with cuda support
     .run_commands(
-        "export PATH=~/usr/bin/cmake:$PATH && export CUDA_HOME=/opt/conda && export PATH=$PATH:$CUDA_HOME/bin && export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CUDA_HOME/lib64 && export CPATH=$CUDA_HOME/include:$CPATH && export CUDNN_INCLUDE_DIR=$CUDA_HOME/include && export CUDNN_LIB_DIR=$CUDA_HOME/lib64",
-        "git clone https://github.com/davisking/dlib.git && cd dlib && mkdir build && cd build && cmake .. -DDLIB_USE_CUDA=1 -DUSE_AVX_INSTRUCTIONS=1 -DCUDA_TOOLKIT_ROOT_DIR=/opt/conda && cmake --build . && cd .. && python setup.py install --set DLIB_USE_CUDA=1",
-        "pip install git+https://github.com/XPixelGroup/BasicSR kornia==0.5.1 face-alignment==1.3.4 ninja==1.10.2.3 einops==0.4.1 facexlib==0.2.5 librosa==0.9.2 numpy==1.20.0",
-    )
-    # check if dlib is installed with cuda support
-    .run_commands(
-        "nvidia-smi",
-        "python -c 'import dlib; print(dlib.__version__); print(dlib.DLIB_USE_CUDA); print(dlib.cuda.get_num_devices())'",
+        "git clone https://github.com/davisking/dlib.git",
+        "cd dlib && mkdir build && cd build && "
+        # Some exports to prepare for cmake
+        + "export PATH=~/usr/bin/cmake:$PATH && "
+        + "export CUDA_HOME=/usr/local/cuda && "
+        + "export PATH=$PATH:$CUDA_HOME/bin && "
+        + "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CUDA_HOME/lib64 && "
+        + "export CPATH=$CUDA_HOME/include:$CPATH && "
+        + "export CUDNN_INCLUDE_DIR=$CUDA_HOME/include && "
+        + "export CUDNN_LIB_DIR=$CUDA_HOME/lib64 && "
+        # Now build dlib with cuda support
+        + "cmake .. -DDLIB_USE_CUDA=1 -DUSE_AVX_INSTRUCTIONS=1 -DCUDA_TOOLKIT_ROOT_DIR=$CUDA_HOME && "
+        + "cmake --build . && "
+        + "cd .. && python setup.py install --set DLIB_USE_CUDA=1",
         gpu=modal.gpu.T4(),
     )
+    # verify that dlib is installed with cuda support
     .run_commands(
-        "git clone https://github.com/OpenTalker/video-retalking.git /root/video-retalking",
+        "which nvcc",
+        "python -c 'import dlib; print('dlib using CUDA: ' + str(dlib.DLIB_USE_CUDA)); print('GPUs: ' + str(dlib.cuda.get_num_devices()))'",
+        gpu=modal.gpu.T4(),
+    )
+    # clone video-retalking repo and install dependencies
+    .run_commands(
+        "git clone https://github.com/ShreyJ1729/video-retalking.git /root/video-retalking",
+        "pip install -r /root/video-retalking/requirements.txt",
     )
 )
 

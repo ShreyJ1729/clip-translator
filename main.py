@@ -14,8 +14,12 @@ Notes to remember:
 import modal
 import config
 from config import app, app_image, volume, mounts
+import os
 import pathlib
+import time
 import lipsync
+import requests
+import dubbing_api
 
 
 @app.function(
@@ -33,9 +37,32 @@ def translate_video(youtube_video_id: str):
     from fastapi.responses import FileResponse
 
     video_file = download_video(youtube_video_id)
-    audio_file = extract_audio(video_file)
 
-    # dubbing_api.perform_dubbing(audio_file)
+    #     api_result = dubbing_api.perform_dubbing(youtube_video_id, "spanish")
+    #     dubbing_id = api_result["dubbing_id"]
+    #     time.sleep(api_result["expected_duration_sec"])
+    # while True:
+    #     get_metadata_command = f"""curl --request GET \
+    #         --url https://api.elevenlabs.io/v1/dubbing/{api_result['dubbing_id']} \
+    #         --header 'xi-api-key: {os.getenv("XI_API_KEY")}'"""
+    #     metadata = requests.get(get_metadata_command).json()
+    #     if metadata["status"] == "completed":
+    #         break
+    #     time.sleep(1)
+
+    # language_code = "es"
+    # get_dubbed_video_command =f"""curl --request GET \
+    #         --url https://api.elevenlabs.io/v1/dubbing/{dubbing_id}/audio/{language_code} \
+    #         --header 'xi-api-key: {os.getenv("XI_API_KEY")}'"""
+    # dubbed_video = requests.get(get_dubbed_video_command)
+
+    # dubbed_file = config.DUBBED_DIR / f"{youtube_video_id}.mp4"
+    # with open(dubbed_file, "wb") as f:
+    #     f.write(dubbed_video.content)
+
+    # audio_file = extract_audio(dubbed_file)
+
+    audio_file = extract_audio(video_file)
 
     config.MODEL_DIR.mkdir(parents=True, exist_ok=True)
     config.LIPSYNCED_DIR.mkdir(parents=True, exist_ok=True)
