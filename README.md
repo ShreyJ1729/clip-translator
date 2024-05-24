@@ -1,21 +1,12 @@
-## DubbSync
+## ClipTranslator
 
-Adds lip-syncing to dubbed videos.
-
-todo
-
-- fix environment build issues
-- create fork of video retalking repo and add small epsilon noise to audio since we are using TTS
+Dubb and lip-sync videos from any language to any language using 11labs API and VideoRetalking (Wav2Lip sequel model)
 
 #### Demo
 
 Original English:
 
 https://github.com/ShreyJ1729/cliptranslator/assets/23284483/25fbc373-bf1d-4f8f-951e-c0d8425a0fb9
-
-French dubbed using 11labs (no lipsync)
-
-https://github.com/ShreyJ1729/cliptranslator/assets/23284483/46aed128-4d3d-43f3-8ed4-a254877f6e27
 
 French dubbed + lipsync
 

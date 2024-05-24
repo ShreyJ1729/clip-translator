@@ -1,9 +1,5 @@
-
-checkpoints/
-Wave2Lip/
-Wave2Lip/**
+media/
 .DS_Store
-*.pth
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
