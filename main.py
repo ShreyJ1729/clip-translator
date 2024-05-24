@@ -13,8 +13,8 @@ Notes to remember:
 
 import modal
 import config
-import pathlib
 from config import app, app_image, volume, mounts
+import pathlib
 import lipsync
 
 
@@ -27,19 +27,18 @@ import lipsync
 @modal.web_endpoint(method="GET")
 def translate_video(youtube_video_id: str):
     """
-    Given a youtube video id of a dubbed video, lip-syncs and returns it.
+    Given a youtube video id of a video, translates, lip-syncs and returns it.
     """
 
     from fastapi.responses import FileResponse
 
-    download_video_extract_audio(youtube_video_id)
+    video_file = download_video(youtube_video_id)
+    audio_file = extract_audio(video_file)
+
+    # dubbing_api.perform_dubbing(audio_file)
 
     config.MODEL_DIR.mkdir(parents=True, exist_ok=True)
     config.LIPSYNCED_DIR.mkdir(parents=True, exist_ok=True)
-
-    # identify paths
-    video_file = config.VIDEO_DIR / f"{youtube_video_id}.mp4"
-    audio_file = config.AUDIO_DIR / f"{youtube_video_id}.mp3"
 
     # lip-sync video to new audio
     lipsynced_file = config.LIPSYNCED_DIR / f"{youtube_video_id}.mp4"
@@ -58,20 +57,18 @@ def translate_video(youtube_video_id: str):
     )
 
 
-def download_video_extract_audio(youtube_video_id: str):
+def download_video(youtube_video_id: pathlib.Path):
     """
-    Given a youtube video id, downloads the video and extracts audio to cache.
+    Given a youtube video id, downloads the video to cache and returns the path.
     """
-    import ffmpeg
+
     import subprocess
 
     # create cache directories if they don't exist
     config.VIDEO_DIR.mkdir(parents=True, exist_ok=True)
-    config.AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 
     # download video to shared volume
     video_file = config.VIDEO_DIR / f"{youtube_video_id}.mp4"
-    audio_file = config.AUDIO_DIR / f"{youtube_video_id}.mp3"
 
     if not video_file.exists():
         try:
@@ -79,7 +76,6 @@ def download_video_extract_audio(youtube_video_id: str):
             subprocess.run(
                 [
                     "yt-dlp",
-                    # "--quiet",
                     "--format",
                     "mp4",
                     "--output",
@@ -91,11 +87,29 @@ def download_video_extract_audio(youtube_video_id: str):
             print(e)
             raise Exception("Error downloading video.")
 
-    # extract audio from video
+    return video_file
+
+
+def extract_audio(video_file: pathlib.Path):
+    """
+    Given a path to a video file, extracts audio to cache.
+    """
+    import ffmpeg
+    import subprocess
+
+    # create cache directories if they don't exist
+    config.AUDIO_DIR.mkdir(parents=True, exist_ok=True)
+
+    # download video to shared volume
+    video_id = video_file.stem
+    audio_file = config.AUDIO_DIR / f"{video_id}.mp3"
+
     if not audio_file.exists():
-        print(f"Extracting audio from video {youtube_video_id}")
+        print(f"Extracting audio from video {audio_file}")
         ffmpeg.input(str(video_file)).output(
             str(audio_file),
             ac=1,
             ar=16000,
         ).run()
+
+    return audio_file

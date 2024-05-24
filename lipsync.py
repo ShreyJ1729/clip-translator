@@ -1,16 +1,15 @@
 import sys
 import pathlib
-from config import lipsync_image, app, volume, mounts
+from config import lipsync_image, app, volume
 import config
 import time
 
 
 @app.function(
     image=lipsync_image,
-    mounts=mounts,
     network_file_systems={config.CACHE_DIR: volume},
     gpu="any",
-    cpu=2,
+    cpu=4,
     memory=8192,
     concurrency_limit=1,
     timeout=600,
@@ -30,12 +29,6 @@ def perform_lip_sync(
         subprocess.run(
             f"cp -r {config.MODEL_DIR} {local_destination}", shell=True, check=True
         )
-
-    # print the gpu in use
-    gpu_in_use = subprocess.run(
-        "nvidia-smi", shell=True, capture_output=True
-    ).stdout.decode("utf-8")
-    print(gpu_in_use)
 
     # perform lip sync
     print(
