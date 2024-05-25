@@ -1,19 +1,16 @@
 """
 Given a dubbed video of a speaker (in frame) whose lips are not in sync with the audio, this code uses Video-Retalking to realistically lip-sync.
 
-Sequential model pipeline:
-- Just apply Video-Retalking
-
-Notes to remember:
-- better logging and error handling
-- add upscale for lip-synced video to increase visual quality of lips
-- create feature to email one-time use download link for processed videos with post-download cleanup (delete)
-= benchmark cpu/memory/time for each function to see how to best split containers
+Multi-speaker pipeline:
+- Eleven Labs dubbing API
+- Diarization to determine num speakers and timestamps
+- Talking head detection to crop face of active speaker
+- Video-Retalking to lip-sync audio to cropped face
 """
 
 import modal
 import config
-from config import app, app_image, volume, mounts
+from config import app, app_image, cache, mounts
 import os
 import pathlib
 import time
@@ -25,8 +22,8 @@ import dubbing_api
 @app.function(
     image=app_image,
     mounts=mounts,
-    network_file_systems={config.CACHE_DIR: volume},
-    timeout=600,
+    volumes={config.CACHE_DIR: cache},
+    timeout=60 * 60 * 1,
 )
 @modal.web_endpoint(method="GET")
 def translate_video(youtube_video_id: str):

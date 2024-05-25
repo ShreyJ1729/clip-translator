@@ -74,10 +74,11 @@ lipsync_image = (
         "git clone https://github.com/ShreyJ1729/video-retalking.git /root/video-retalking",
         "pip install -r /root/video-retalking/requirements.txt",
     )
+    .apt_install("rsync")
 )
 
 # contains all model files for lip-syncing
-volume = modal.NetworkFileSystem.from_name("dubbsync-cache", create_if_missing=True)
+cache = modal.Volume.from_name("cliptranslator-cache", create_if_missing=True)
 
 # root directory for all cached data (mount point for nfs)
 CACHE_DIR = "/cache"

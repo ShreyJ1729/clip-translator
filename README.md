@@ -1,11 +1,13 @@
 ## ClipTranslator
 
 Dubb and lip-sync videos from any language to any language using ElevenLabs and VideoRetalking (Wav2Lip sequel).
-Deployed on Modal Labs.
 
-### Demo
+### Task list
 
-tbd
+- Fix environment issue and get demo working
+- Add 11labs dubbing api to pipeline
+- Build simple web interface for demo?
+- Multiple speaker model pipeline
 
 ### Credits
 

@@ -1,18 +1,18 @@
 import sys
 import modal
 import pathlib
-from config import lipsync_image, app, volume
+from config import lipsync_image, app, cache
 import config
 import time
 
 
 @app.function(
     image=lipsync_image,
-    network_file_systems={config.CACHE_DIR: volume},
-    gpu=modal.gpu.T4(),
-    cpu=2,
-    memory=2048,
-    timeout=600,
+    volumes={config.CACHE_DIR: cache},
+    # T4 too slow for lip-syncing
+    gpu="A10G",
+    memory=1024 * 16,
+    timeout=60 * 60 * 1,
 )
 def perform_lip_sync(
     video_file: pathlib.Path, audio_file: pathlib.Path, output_file: pathlib.Path
@@ -22,13 +22,15 @@ def perform_lip_sync(
     """
     import subprocess
 
-    # copy model files from cache to container
-    # local_destination = pathlib.Path("/root/video-retalking/")
-    # if not (local_destination / "checkpoints").exists():
-    #     print(f"Copying model files from {config.MODEL_DIR} to {local_destination}...")
-    #     subprocess.run(
-    #         f"cp -r {config.MODEL_DIR} {local_destination}", shell=True, check=True
-    #     )
+    # copy model files from cache to container for faster access
+    checkpoints_dest = pathlib.Path("/root/video-retalking/checkpoints")
+    if not (checkpoints_dest).exists():
+        print(f"Copying model files from {config.MODEL_DIR} to {checkpoints_dest}...")
+        subprocess.run(
+            f"rsync -ah --progress {config.MODEL_DIR}/* {checkpoints_dest}",
+            shell=True,
+            check=True,
+        )
 
     print(
         f"Performing lip sync combining {str(video_file)} and {str(audio_file)}, saving to {str(output_file)}..."
@@ -44,7 +46,7 @@ def perform_lip_sync(
                     export CUDNN_LIB_DIR=$CUDA_HOME/lib64 &&
 
                     cd /root/video-retalking &&
-                    python inference.py --checkpoints {config.MODEL_DIR} --face {str(video_file)} --audio {str(audio_file)} --outfile {str(output_file)}"""
+                    python inference.py --checkpoints {checkpoints_dest} --face {str(video_file)} --audio {str(audio_file)} --outfile {str(output_file)}"""
 
     process = subprocess.Popen(command, shell=True, text=True, stdout=subprocess.PIPE)
 
