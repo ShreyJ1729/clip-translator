@@ -1,24 +1,6 @@
 import modal
-import logging
-import pathlib
 
-import modal.gpu
-
-app = modal.App("dubbsync")
-
-mounts = [
-    modal.Mount.from_local_file(
-        "requirements.txt", remote_path="/root/requirements.txt"
-    ),
-]
-
-app_image = (
-    modal.Image.debian_slim()
-    .apt_install("ffmpeg", "git")
-    .pip_install_from_requirements("requirements.txt")
-)
-
-lipsync_image = (
+video_retalking_image = (
     modal.Image.from_registry("nvidia/cuda:12.2.0-devel-ubuntu22.04", add_python="3.9")
     # run of the mill dependencies
     .apt_install(
@@ -76,21 +58,3 @@ lipsync_image = (
     )
     .apt_install("rsync")
 )
-
-# contains all model files for lip-syncing
-cache = modal.Volume.from_name("cliptranslator-cache", create_if_missing=True)
-
-# root directory for all cached data (mount point for nfs)
-CACHE_DIR = "/cache"
-
-# model checkpoint.
-MODEL_DIR = pathlib.Path(CACHE_DIR, "model")
-
-# downloaded video files
-VIDEO_DIR = pathlib.Path(CACHE_DIR, "video")
-
-# audio files extracted from video
-AUDIO_DIR = pathlib.Path(CACHE_DIR, "audio")
-
-# processed (lip-synced) video files
-LIPSYNCED_DIR = pathlib.Path(CACHE_DIR, "lipsynced")

@@ -9,14 +9,15 @@ Multi-speaker pipeline:
 """
 
 import modal
-import config
-from config import app, app_image, cache, mounts
+import core.utils as utils
+import core.config as config
+from core.config import app, app_image, cache, mounts
 import os
 import pathlib
 import time
-import lipsync
+import core.lipsync as lipsync
 import requests
-import dubbing_api
+import core.dubbing_api as dubbing_api
 
 
 @app.function(
@@ -26,14 +27,14 @@ import dubbing_api
     timeout=60 * 60 * 1,
 )
 @modal.web_endpoint(method="GET")
-def translate_video(youtube_video_id: str):
+def process_video(youtube_video_id: str):
     """
     Given a youtube video id of a video, translates, lip-syncs and returns it.
     """
 
     from fastapi.responses import FileResponse
 
-    video_file = download_video(youtube_video_id)
+    video_file = utils.download_video(youtube_video_id)
 
     #     api_result = dubbing_api.perform_dubbing(youtube_video_id, "spanish")
     #     dubbing_id = api_result["dubbing_id"]
@@ -57,9 +58,9 @@ def translate_video(youtube_video_id: str):
     # with open(dubbed_file, "wb") as f:
     #     f.write(dubbed_video.content)
 
-    # audio_file = extract_audio(dubbed_file)
+    # audio_file = utils.extract_audio(dubbed_file)
 
-    audio_file = extract_audio(video_file)
+    audio_file = utils.extract_audio(video_file)
 
     config.MODEL_DIR.mkdir(parents=True, exist_ok=True)
     config.LIPSYNCED_DIR.mkdir(parents=True, exist_ok=True)
@@ -72,68 +73,3 @@ def translate_video(youtube_video_id: str):
     audio_file.unlink()
     video_file.unlink()
     print("Deleted cached audio and video files.")
-
-    # return as Fastapi File Response
-    return FileResponse(
-        str(lipsynced_file),
-        media_type="video/mp4",
-        filename=f"{youtube_video_id}-dubbsynced.mp4",
-    )
-
-
-def download_video(youtube_video_id: pathlib.Path):
-    """
-    Given a youtube video id, downloads the video to cache and returns the path.
-    """
-
-    import subprocess
-
-    # create cache directories if they don't exist
-    config.VIDEO_DIR.mkdir(parents=True, exist_ok=True)
-
-    # download video to shared volume
-    video_file = config.VIDEO_DIR / f"{youtube_video_id}.mp4"
-
-    if not video_file.exists():
-        try:
-            print(f"Downloading video {youtube_video_id}")
-            subprocess.run(
-                [
-                    "yt-dlp",
-                    "--format",
-                    "mp4",
-                    "--output",
-                    str(video_file),
-                    f"https://www.youtube.com/watch?v={youtube_video_id}",
-                ]
-            )
-        except Exception as e:
-            print(e)
-            raise Exception("Error downloading video.")
-
-    return video_file
-
-
-def extract_audio(video_file: pathlib.Path):
-    """
-    Given a path to a video file, extracts audio to cache.
-    """
-    import ffmpeg
-    import subprocess
-
-    # create cache directories if they don't exist
-    config.AUDIO_DIR.mkdir(parents=True, exist_ok=True)
-
-    # download video to shared volume
-    video_id = video_file.stem
-    audio_file = config.AUDIO_DIR / f"{video_id}.mp3"
-
-    if not audio_file.exists():
-        print(f"Extracting audio from video {audio_file}")
-        ffmpeg.input(str(video_file)).output(
-            str(audio_file),
-            ac=1,
-            ar=16000,
-        ).run()
-
-    return audio_file

@@ -1,4 +1,10 @@
+*.mp4
+*.mp3
+*.wav
+lipsynced/
 media/
+audio/
+video/
 .DS_Store
 
 # Byte-compiled / optimized / DLL files

@@ -1,20 +1,19 @@
-import sys
-import modal
-import pathlib
-from config import lipsync_image, app, cache
-import config
 import time
+import sys
+import pathlib
+import core.config as config
+from core.config import app, cache
+from core.images.video_retalking import video_retalking_image
 
 
 @app.function(
-    image=lipsync_image,
+    image=video_retalking_image,
     volumes={config.CACHE_DIR: cache},
-    # T4 too slow for lip-syncing
     gpu="A10G",
     memory=1024 * 16,
     timeout=60 * 60 * 1,
 )
-def perform_lip_sync(
+def lipsync_video_retalking(
     video_file: pathlib.Path, audio_file: pathlib.Path, output_file: pathlib.Path
 ):
     """

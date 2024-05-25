@@ -1,3 +1,0 @@
-ffmpeg-python
-yt-dlp
-python-dotenv
